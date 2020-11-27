@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	"botNews/routes"
+	"botnews/routes"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -17,6 +17,6 @@ func homeLink(w http.ResponseWriter, r *http.Request) {
 func main() {
 
 	router := httprouter.New()
-	router.GET("/", routes.GetAllNews)
+	router.GET("/wirteNews", routes.PostNews)
 	log.Fatal(http.ListenAndServe(":6379", router))
 }
