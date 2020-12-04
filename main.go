@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 
 	"botnews/routes"
 
@@ -25,21 +24,27 @@ func main() {
 		fmt.Println("Error loading .env file")
 	}
 
+	// a := []string{"Defi", "A", "B"}
+	// mydata := []byte(strings.Join(a, ","))
+	// err1 := ioutil.WriteFile(".following", mydata, 0777)
+	// if err1 != nil {
+	// 	fmt.Println(err1)
+	// }
+
+	// data, err := ioutil.ReadFile(".following")
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+
+	// fmt.Print(strings.Split(string(data), "-"))
+	// fmt.Print(strings.Join(strings.Split(string(data), "-"), "-"))
+
 	fmt.Println("Starting Server")
-	if args := os.Args; len(args) > 1 && args[1] == "-register" {
-		go routes.RegisterWebhook()
-	}
 	router := httprouter.New()
 	router.GET("/", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		fmt.Fprint(w, "Welcome!\n")
 	})
-	router.POST("/webhook/chatwork", routes.HandleChatworkWebhook)
-	//Listen to crc check and handle
-	router.GET("/twitter/crc", routes.CrcCheck)
-	//Listen to webhook event and handle
-	router.GET("/twitter/webhook", routes.HandleTwitterWebhook)
-
-	// c := cron.New()
+	router.POST("/chatwork/webhook", routes.HandleChatworkWebhook)
 
 	log.Fatal(http.ListenAndServe(":9090", router))
 }
