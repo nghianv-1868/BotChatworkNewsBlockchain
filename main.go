@@ -6,14 +6,11 @@ import (
 	"net/http"
 
 	"botnews/routes"
+	"botnews/stream"
 
 	"github.com/joho/godotenv"
 	"github.com/julienschmidt/httprouter"
 )
-
-func homeLink(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Welcome home!")
-}
 
 func main() {
 
@@ -24,27 +21,16 @@ func main() {
 		fmt.Println("Error loading .env file")
 	}
 
-	// a := []string{"Defi", "A", "B"}
-	// mydata := []byte(strings.Join(a, ","))
-	// err1 := ioutil.WriteFile(".following", mydata, 0777)
-	// if err1 != nil {
-	// 	fmt.Println(err1)
-	// }
+	// Create stream twitter
+	stream.CreateStreamTwitter()
+	go stream.Demux.HandleChan(stream.StreamTwitter.Messages)
 
-	// data, err := ioutil.ReadFile(".following")
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-
-	// fmt.Print(strings.Split(string(data), "-"))
-	// fmt.Print(strings.Join(strings.Split(string(data), "-"), "-"))
-
+	// Create server http
 	fmt.Println("Starting Server")
 	router := httprouter.New()
 	router.GET("/", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		fmt.Fprint(w, "Welcome!\n")
 	})
 	router.POST("/chatwork/webhook", routes.HandleChatworkWebhook)
-
 	log.Fatal(http.ListenAndServe(":9090", router))
 }

@@ -12,6 +12,8 @@ import (
 
 	"os"
 
+	"botnews/stream"
+
 	"github.com/joho/godotenv"
 	"github.com/julienschmidt/httprouter"
 )
@@ -95,6 +97,7 @@ func HandleChatworkWebhook(w http.ResponseWriter, r *http.Request, _ httprouter.
 		messRes := `[info][title]Tags[/title]- Add success: ` + strings.Join(listTags, " , ") + `[/info]`
 		sendMessage(messRes)
 		addToFile(listTags, ".tags")
+
 	} else if strings.Contains(mess, "remove_tag=") {
 		messBody := strings.Split(mess, "remove_tag=")[1]
 		messBody = strings.ReplaceAll(messBody, " ", "")
@@ -128,7 +131,7 @@ func HandleChatworkWebhook(w http.ResponseWriter, r *http.Request, _ httprouter.
 				listFollow = append(listFollow, getUserIdFromUsername(v))
 				listFollowUsername = append(listFollowUsername, v)
 			} else {
-				listNotFound = append(listNotFound, v)
+				listNotFound = append(listNotFound, v+"(not found)")
 			}
 		}
 
@@ -187,6 +190,7 @@ func addToFile(_list []string, _nameFile string) {
 	if err1 != nil {
 		fmt.Println(err1)
 	}
+	restartStream()
 }
 func removbeToFile(_list []string, _nameFile string) {
 	readData, err := ioutil.ReadFile(_nameFile)
@@ -205,6 +209,7 @@ func removbeToFile(_list []string, _nameFile string) {
 	if err1 != nil {
 		fmt.Println(err1)
 	}
+	restartStream()
 }
 
 func containsArrayString(s []string, str string) bool {
@@ -283,6 +288,12 @@ func getUsernameFromUserId(_userId string) string {
 	}
 	fmt.Println(info)
 	return info.Data.Username
+}
+
+func restartStream() {
+	stream.StreamTwitter.Stop()
+	stream.CreateStreamTwitter()
+	go stream.Demux.HandleChan(stream.StreamTwitter.Messages)
 }
 
 // func ValidateRequestChatwork(r *http.Request) {
