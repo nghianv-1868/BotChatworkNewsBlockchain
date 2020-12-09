@@ -14,7 +14,6 @@ import (
 
 	"botnews/stream"
 
-	"github.com/joho/godotenv"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -47,13 +46,24 @@ type Webhook_event struct {
 	Update_time     int64  `json:"update_time"`
 }
 
-func sendMessage(message string) {
+type ResponseRoom struct {
+	Room_id          int    `json:"room_id"`
+	Name             string `json:"name"`
+	Type             string `json:"type"`
+	Role             string `json:"role"`
+	Sticky           bool   `json:"sticky"`
+	Unread_num       int    `json:"unread_num"`
+	Mention_num      int    `json:"mention_num"`
+	Mytask_num       int    `json:"mytask_num"`
+	Message_num      int    `json:"message_num"`
+	File_num         int    `json:"file_num"`
+	Task_num         int    `json:"task_num"`
+	Icon_path        string `json:"icon_path"`
+	Last_update_time int    `json:"last_update_time"`
+	Description      string `json:"description"`
+}
 
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-	// URL request
+func sendMessage(message string) {
 	reqURL := "https://api.chatwork.com/v2/rooms/206069293/messages?body=" + url.QueryEscape(message)
 
 	token := os.Getenv("TOKEN_CHATWORK_BOT")
@@ -190,7 +200,7 @@ func addToFile(_list []string, _nameFile string) {
 	if err1 != nil {
 		fmt.Println(err1)
 	}
-	restartStream()
+	updateWhenChangeFile()
 }
 func removbeToFile(_list []string, _nameFile string) {
 	readData, err := ioutil.ReadFile(_nameFile)
@@ -209,7 +219,7 @@ func removbeToFile(_list []string, _nameFile string) {
 	if err1 != nil {
 		fmt.Println(err1)
 	}
-	restartStream()
+	updateWhenChangeFile()
 }
 
 func containsArrayString(s []string, str string) bool {
@@ -290,10 +300,97 @@ func getUsernameFromUserId(_userId string) string {
 	return info.Data.Username
 }
 
-func restartStream() {
+func updateWhenChangeFile() {
 	stream.StreamTwitter.Stop()
 	stream.CreateStreamTwitter()
 	go stream.Demux.HandleChan(stream.StreamTwitter.Messages)
+
+	dataTags, err := ioutil.ReadFile(".tags")
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	dataFollowing, err := ioutil.ReadFile(".following")
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	following := strings.Split(string(dataFollowing), ",")
+
+	for i, v := range following {
+		following[i] = getUsernameFromUserId(v)
+	}
+
+	// Update list following
+	description := getDescriptionChatwork()
+	fromF := strings.Index(description, "[info][title]List Following[/title] [") + 37
+	toF := strings.Index(description, "] [/info][info][title]List Tags[/title]")
+	description = description[:fromF] + strings.Join(following, ",") + description[(toF-2):]
+
+	// Update list tags
+	fromT := strings.Index(description, "[info][title]List Tags[/title] [") + 32
+	description = description[:fromT] + string(dataTags) + "] [/info]"
+
+	updateDescriptionChatwork(description)
+}
+
+func getDescriptionChatwork() string {
+	// URL request
+	reqURL := "https://api.chatwork.com/v2/rooms/206069293"
+
+	token := os.Getenv("TOKEN_CHATWORK_BOT")
+
+	client := &http.Client{}
+
+	request, err := http.NewRequest("GET", reqURL, nil)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	request.Header.Set("X-ChatworkToken", token)
+
+	resp, err := client.Do(request)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	defer resp.Body.Close()
+
+	fmt.Println("Get Description:", resp.Status)
+	body, _ := ioutil.ReadAll(resp.Body)
+	var res ResponseRoom
+	error := json.Unmarshal(body, &res)
+	if error != nil {
+		return ""
+	}
+	return res.Description
+}
+
+func updateDescriptionChatwork(message string) {
+	// URL request
+	reqURL := "https://api.chatwork.com/v2/rooms/206069293?description=" + url.QueryEscape(message)
+
+	token := os.Getenv("TOKEN_CHATWORK_BOT")
+
+	client := &http.Client{}
+
+	request, err := http.NewRequest("PUT", reqURL, nil)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	request.Header.Set("X-ChatworkToken", token)
+
+	resp, err := client.Do(request)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	defer resp.Body.Close()
+
+	fmt.Println("Update Description:", resp.Status)
+	body, _ := ioutil.ReadAll(resp.Body)
+	fmt.Println("response Body:", string(body))
 }
 
 // func ValidateRequestChatwork(r *http.Request) {

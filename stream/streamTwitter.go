@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/coreos/pkg/flagutil"
 	"github.com/dghubble/go-twitter/twitter"
@@ -44,16 +45,36 @@ func CreateStreamTwitter() {
 	// Convenience Demux demultiplexed stream messages
 	Demux = twitter.NewSwitchDemux()
 	Demux.Tweet = func(tweet *twitter.Tweet) {
-
-		fmt.Println("---------------------------------------------------------------------------------------")
-		fmt.Println("|")
 		fmt.Println(tweet.Text)
-		fmt.Println(tweet.InReplyToStatusID)
-		fmt.Println("|")
-		fmt.Println("---------------------------------------------------------------------------------------")
+		if tweet.InReplyToStatusID == 0 {
+			if tweet.RetweetedStatus != nil {
+				currentTime := time.Now()
+				messRes := "[info][title]" + currentTime.Format("2006-01-02 15:04:05") +
+					" | Twitter: ( @" + tweet.User.ScreenName +
+					" ) retweet from ( @" + tweet.Entities.UserMentions[0].ScreenName +
+					" ) [/title][code] " + tweet.RetweetedStatus.Text + " [/code]" +
+					"[info] Link Status: https://twitter.com/" + tweet.User.ScreenName + "/status/" + tweet.IDStr + "[/info][/info]"
+				sendMessage(messRes)
+			} else if tweet.RetweetedStatus == nil && tweet.QuotedStatus != nil {
+				currentTime := time.Now()
+				messRes := "[info][title]" + currentTime.Format("2006-01-02 15:04:05") +
+					" | Twitter: ( @" + tweet.User.ScreenName +
+					" ) Quote from ( @" + tweet.QuotedStatus.User.ScreenName +
+					" ) [/title] \n " + tweet.Text + " \n " +
+					" [code]" + tweet.QuotedStatus.Text + "[/code]" +
+					"[info] Link Status: https://twitter.com/" + tweet.User.ScreenName + "/status/" + tweet.IDStr + "[/info][/info]"
+				sendMessage(messRes)
+			} else if tweet.RetweetedStatus == nil && tweet.QuotedStatus == nil {
+				currentTime := time.Now()
+				messRes := "[info][title]" + currentTime.Format("2006-01-02 15:04:05") +
+					" | Twitter: ( @" + tweet.User.ScreenName +
+					" ) Tweet [/title][code] " + tweet.Text + " [/code]" +
+					"[info]Link Status: https://twitter.com/" + tweet.User.ScreenName + "/status/" + tweet.IDStr + "[/info][/info]"
+				sendMessage(messRes)
+			}
 
-		// messRes := `[info]`+tweet.CreatedAtTime()+`[title]Twitter [/title]` + tweet.Text + `[/info]`
-		// sendMessage(messRes)
+		}
+
 	}
 	Demux.FriendsList = func(friendsList *twitter.FriendsList) {
 		fmt.Println(friendsList)
@@ -69,6 +90,13 @@ func CreateStreamTwitter() {
 	fmt.Println("Starting Stream...")
 
 	listFollowing, err := ioutil.ReadFile(".following")
+	fmt.Println("listFollowing: ", strings.Split(string(listFollowing), ","))
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	listTags, err := ioutil.ReadFile(".tags")
+	fmt.Println("listTags: ", strings.Split(string(listTags), ","))
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -76,6 +104,7 @@ func CreateStreamTwitter() {
 	// FILTER
 	filterParams := &twitter.StreamFilterParams{
 		Follow:        strings.Split(string(listFollowing), ","),
+		Track:         strings.Split(string(listTags), ","),
 		StallWarnings: twitter.Bool(true),
 	}
 	StreamTwitter, err = client.Streams.Filter(filterParams)
@@ -121,7 +150,7 @@ func sendMessage(message string) {
 
 	defer resp.Body.Close()
 
-	fmt.Println("response Status:", resp.Status)
+	fmt.Println("SendMessage:", resp.Status)
 	body, _ := ioutil.ReadAll(resp.Body)
 	fmt.Println("response Body:", string(body))
 }
