@@ -104,7 +104,7 @@ func HandleChatworkWebhook(w http.ResponseWriter, r *http.Request, _ httprouter.
 		messBody := strings.Split(mess, "add_tag=")[1]
 		messBody = strings.ReplaceAll(messBody, " ", "")
 		listTags := strings.Split(messBody, ",")
-		messRes := `[info][title]Tags[/title]- Add success: ` + strings.Join(listTags, " , ") + `[/info]`
+		messRes := "[info][title]Tags[/title]- Add success: " + strings.Join(listTags, " , ") + "[/info]"
 		sendMessage(messRes)
 		addToFile(listTags, ".tags")
 
@@ -125,28 +125,33 @@ func HandleChatworkWebhook(w http.ResponseWriter, r *http.Request, _ httprouter.
 				listTagsNotContains = append(listTagsNotContains, v+"(not contains tags)")
 			}
 		}
-		messRes := `[info][title]Tags[/title]- Remove success: ` + strings.Join(listTagsSuccess, " , ") + `
-- Remove error: ` + strings.Join(listTagsNotContains, " , ") + `[/info]`
+		messRes := "[info][title]Tags[/title]- Remove success: " + strings.Join(listTagsSuccess, " , ") + "- Remove error: " + strings.Join(listTagsNotContains, " , ") + "[/info]"
 		sendMessage(messRes)
 		removbeToFile(listTags, ".tags")
 	} else if strings.Contains(mess, "add_follow=") {
 		messBody := strings.Split(mess, "add_follow=")[1]
 		messBody = strings.ReplaceAll(messBody, " ", "")
+		if strings.Index(messBody, "\n") >= 0 {
+			messBody = messBody[:strings.Index(messBody, "\n")]
+		}
+
+		if strings.Index(messBody, "[To:") >= 0 {
+			messBody = messBody[:strings.Index(messBody, "[To:")]
+		}
 		listUsername := strings.Split(messBody, ",")
 		listFollow := []string{}
 		listFollowUsername := []string{}
 		listNotFound := []string{}
 		for _, v := range listUsername {
-			if getUserIdFromUsername(v) != "" {
-				listFollow = append(listFollow, getUserIdFromUsername(v))
+			if getUserIdFromUsernameTwitter(v) != "" {
+				listFollow = append(listFollow, getUserIdFromUsernameTwitter(v))
 				listFollowUsername = append(listFollowUsername, v)
 			} else {
 				listNotFound = append(listNotFound, v+"(not found)")
 			}
 		}
 
-		messRes := `[info][title]Follow[/title]- Add success: ` + strings.Join(listFollowUsername, " , ") + `
-- Add error: ` + strings.Join(listNotFound, " , ") + `[/info]`
+		messRes := "[info][title]Follow[/title]- Add success: " + strings.Join(listFollowUsername, " , ") + "- Add error: " + strings.Join(listNotFound, " , ") + "[/info]"
 		sendMessage(messRes)
 		addToFile(listFollow, ".following")
 	} else if strings.Contains(mess, "remove_follow=") {
@@ -161,11 +166,11 @@ func HandleChatworkWebhook(w http.ResponseWriter, r *http.Request, _ httprouter.
 			fmt.Println(err)
 		}
 		for _, v := range listRemove {
-			if getUserIdFromUsername(v) != "" {
-				if !containsArrayString(strings.Split(string(readData), ","), getUserIdFromUsername(v)) {
+			if getUserIdFromUsernameTwitter(v) != "" {
+				if !containsArrayString(strings.Split(string(readData), ","), getUserIdFromUsernameTwitter(v)) {
 					listUsernameNotFound = append(listUsernameNotFound, v+"(not contains following)")
 				} else {
-					listUserIdRemove = append(listUserIdRemove, getUserIdFromUsername(v))
+					listUserIdRemove = append(listUserIdRemove, getUserIdFromUsernameTwitter(v))
 					listUsernameRemove = append(listUsernameRemove, v)
 				}
 
@@ -173,8 +178,7 @@ func HandleChatworkWebhook(w http.ResponseWriter, r *http.Request, _ httprouter.
 				listUsernameNotFound = append(listUsernameNotFound, v+"(not found)")
 			}
 		}
-		messRes := `[info][title]Follow[/title]- Remove success: ` + strings.Join(listUsernameRemove, " , ") + `
-- Remove error: ` + strings.Join(listUsernameNotFound, " , ") + `[/info]`
+		messRes := "[info][title]Follow[/title]- Remove success: " + strings.Join(listUsernameRemove, " , ") + "- Remove error: " + strings.Join(listUsernameNotFound, " , ") + "[/info]"
 		sendMessage(messRes)
 		removbeToFile(listUserIdRemove, ".following")
 	}
@@ -242,7 +246,7 @@ func indexContainsArrayString(s []string, str string) int {
 	return -1
 }
 
-func getUserIdFromUsername(_username string) string {
+func getUserIdFromUsernameTwitter(_username string) string {
 	// URL request
 	reqURL := "https://api.twitter.com/2/users/by/username/" + _username
 
@@ -270,7 +274,7 @@ func getUserIdFromUsername(_username string) string {
 	}
 	return info.Data.Id
 }
-func getUsernameFromUserId(_userId string) string {
+func getUsernameFromUserIdTwitter(_userId string) string {
 	// URL request
 	reqURL := "https://api.twitter.com/2/users/" + _userId
 
@@ -318,16 +322,16 @@ func updateWhenChangeFile() {
 	following := strings.Split(string(dataFollowing), ",")
 
 	for i, v := range following {
-		following[i] = getUsernameFromUserId(v)
+		following[i] = getUsernameFromUserIdTwitter(v)
 	}
 
-	// Update list following
+	// Update list following in description chatwork
 	description := getDescriptionChatwork()
 	fromF := strings.Index(description, "[info][title]List Following[/title] [") + 37
 	toF := strings.Index(description, "] [/info][info][title]List Tags[/title]")
-	description = description[:fromF] + strings.Join(following, ",") + description[(toF-2):]
+	description = description[:fromF] + strings.Join(following, ",") + description[toF:]
 
-	// Update list tags
+	// Update list tags in description chatwork
 	fromT := strings.Index(description, "[info][title]List Tags[/title] [") + 32
 	description = description[:fromT] + string(dataTags) + "] [/info]"
 

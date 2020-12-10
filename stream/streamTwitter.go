@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/coreos/pkg/flagutil"
 	"github.com/dghubble/go-twitter/twitter"
@@ -45,31 +44,20 @@ func CreateStreamTwitter() {
 	// Convenience Demux demultiplexed stream messages
 	Demux = twitter.NewSwitchDemux()
 	Demux.Tweet = func(tweet *twitter.Tweet) {
-		fmt.Println(tweet.Text)
 		if tweet.InReplyToStatusID == 0 {
-			if tweet.RetweetedStatus != nil {
-				currentTime := time.Now()
-				messRes := "[info][title]" + currentTime.Format("2006-01-02 15:04:05") +
-					" | Twitter: ( @" + tweet.User.ScreenName +
-					" ) retweet from ( @" + tweet.Entities.UserMentions[0].ScreenName +
-					" ) [/title][code] " + tweet.RetweetedStatus.Text + " [/code]" +
-					"[info] Link Status: https://twitter.com/" + tweet.User.ScreenName + "/status/" + tweet.IDStr + "[/info][/info]"
+			readData, err := ioutil.ReadFile(".following")
+			arrData := strings.Split(string(readData), ",")
+			if err != nil {
+				fmt.Println(err)
+			}
+			if tweet.RetweetedStatus != nil && containsArrayString(arrData, tweet.User.IDStr) {
+				messRes := "[info][title]https://twitter.com/" + tweet.User.ScreenName + "/status/" + tweet.IDStr + " ( @" + tweet.User.ScreenName + " - Retweet ) [/title] " + tweet.RetweetedStatus.Text + "[/info]"
 				sendMessage(messRes)
-			} else if tweet.RetweetedStatus == nil && tweet.QuotedStatus != nil {
-				currentTime := time.Now()
-				messRes := "[info][title]" + currentTime.Format("2006-01-02 15:04:05") +
-					" | Twitter: ( @" + tweet.User.ScreenName +
-					" ) Quote from ( @" + tweet.QuotedStatus.User.ScreenName +
-					" ) [/title] \n " + tweet.Text + " \n " +
-					" [code]" + tweet.QuotedStatus.Text + "[/code]" +
-					"[info] Link Status: https://twitter.com/" + tweet.User.ScreenName + "/status/" + tweet.IDStr + "[/info][/info]"
+			} else if tweet.RetweetedStatus == nil && tweet.QuotedStatus != nil && containsArrayString(arrData, tweet.User.IDStr) {
+				messRes := "[info][title]https://twitter.com/" + tweet.User.ScreenName + "/status/" + tweet.IDStr + " ( @" + tweet.User.ScreenName + " - Quote ) [/title] " + tweet.Text + "[info]" + tweet.QuotedStatus.Text + "[/info][/info]"
 				sendMessage(messRes)
-			} else if tweet.RetweetedStatus == nil && tweet.QuotedStatus == nil {
-				currentTime := time.Now()
-				messRes := "[info][title]" + currentTime.Format("2006-01-02 15:04:05") +
-					" | Twitter: ( @" + tweet.User.ScreenName +
-					" ) Tweet [/title][code] " + tweet.Text + " [/code]" +
-					"[info]Link Status: https://twitter.com/" + tweet.User.ScreenName + "/status/" + tweet.IDStr + "[/info][/info]"
+			} else if tweet.RetweetedStatus == nil && tweet.QuotedStatus == nil && containsArrayString(arrData, tweet.User.IDStr) {
+				messRes := "[info][title]https://twitter.com/" + tweet.User.ScreenName + "/status/" + tweet.IDStr + " ( @" + tweet.User.ScreenName + " - Tweet ) [/title] " + tweet.Text + "[/info]"
 				sendMessage(messRes)
 			}
 
@@ -153,4 +141,14 @@ func sendMessage(message string) {
 	fmt.Println("SendMessage:", resp.Status)
 	body, _ := ioutil.ReadAll(resp.Body)
 	fmt.Println("response Body:", string(body))
+}
+
+func containsArrayString(s []string, str string) bool {
+	for _, v := range s {
+		if v == str {
+			return true
+		}
+	}
+
+	return false
 }
